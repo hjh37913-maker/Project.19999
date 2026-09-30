@@ -1,0 +1,42 @@
+name: Build APK
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+env:
+  PAD_MB: 80
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: repo
+      - name: Розпакувати ZIP
+        working-directory: .
+        run: |
+          mkdir app
+          unzip -q -o repo/*.zip -d app
+          ls -a app
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+      - uses: subosito/flutter-action@v2
+        with: { channel: stable, cache: true }
+      - name: Android-обвязка
+        run: |
+          flutter create . --platforms=android --project-name egidnist --org ua.egidnist
+          cp src/*.dart lib/
+          sed -i 's/android:label="[^"]*"/android:label="Є-Гідність"/' android/app/src/main/AndroidManifest.xml
+      - name: Балласт
+        run: |
+          mkdir -p assets/padding
+          for i in $(seq 1 $((PAD_MB/10))); do head -c 10485760 /dev/urandom > assets/padding/data_$i.bin; done
+      - run: flutter pub get
+      - run: flutter build apk --release --split-per-abi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: egidnist-apk
+          path: app/build/app/outputs/flutter-apk/*.apk
